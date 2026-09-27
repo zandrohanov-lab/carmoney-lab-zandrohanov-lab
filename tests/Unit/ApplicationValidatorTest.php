@@ -112,4 +112,14 @@ final class ApplicationValidatorTest extends TestCase
             self::assertArrayHasKey('mileage', $exception->errors());
         }
     }
+
+    public function testRejectsMileageAboveMax(): void
+    {
+        try {
+            $this->validator->validate($this->validPayload(['mileage' => 500001]));
+            self::fail('Ожидали ValidationException');
+        } catch (ValidationException $exception) {
+            self::assertArrayHasKey('mileage', $exception->errors());
+        }
+    }
 }
