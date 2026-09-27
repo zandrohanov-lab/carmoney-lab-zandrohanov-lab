@@ -20,9 +20,9 @@ flowchart TD
 
 `VinValidator`, `VehicleAge`, `ValidationException` — вспомогательные; в решение approve/review/reject напрямую вклада не имеют (VehicleAge влияет только на то, пройдёт ли заявка валидацию года).
 
-## Куда встанет правило «пробег > 400 000 км → review»
+## Куда встанет правило «пробег >= 400 000 км → review»
 
-**Функция:** `DecisionEngine::decide()` — это единственное место в коде, где выбирается `approve`/`review`/`reject`. Конкретно — перед или после существующих проверок LTV (например, первой проверкой: `если mileage > 400000 → return self::REVIEW`).
+**Функция:** `DecisionEngine::decide()` — это единственное место в коде, где выбирается `approve`/`review`/`reject`. Конкретно — перед или после существующих проверок LTV (например, первой проверкой: `если mileage >= 400000 → return self::REVIEW`; граница строгая по решению заказчика 2026-09-27 — ровно 400 000 уже переводится в `review`). Итоговое решение плана (docs/plan/plan_MILEAGE.md, шаг 4) — пост-обработка в `AssessmentService::assess()` с сохранением контракта `DecisionEngine`; этот вариант выбран вместо расширения `decide()`.
 
 **Что для этого уже есть:**
 - Само значение пробега: `ApplicationValidator` валидирует его и возвращает в `input['mileage']`, и `AssessmentService::assess()` имеет доступ к `$input['mileage']` — данные уже доходят до уровня, где вызывается `decide()`.
