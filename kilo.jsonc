@@ -5,6 +5,9 @@
 {
   "$schema": "https://app.kilo.ai/config.json",
   "model": "openrouter/minimax/minimax-m3",
+  "instructions": [
+    ".kilo/rules/ast-index.md",
+  ],
   "permission": {
   "read": { "*": "allow", "*.env*": "deny" },
   "edit": { "*": "allow", "*.env*": "deny", "kilo.jsonc": "deny" },
