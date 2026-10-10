@@ -7,10 +7,21 @@
   "model": "openrouter/minimax/minimax-m3",
   "instructions": [
     ".kilo/rules/ast-index.md",
+    ".kilo/rules/caveman-output.md",
   ],
   "permission": {
   "read": { "*": "allow", "*.env*": "deny" },
   "edit": { "*": "allow", "*.env*": "deny", "kilo.jsonc": "deny" },
   "bash": { "*": "ask", "git *": "allow", "git push*": "ask", "make *": "allow", "*.env*": "deny", "*reset_db*": "deny", "rm -rf*": "deny", "git push --force*": "deny" }
+  },
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@0.0.38"
+      ]
+    }
   }
 }

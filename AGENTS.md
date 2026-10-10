@@ -37,4 +37,4 @@ curl http://localhost:8080/health
 - Права агента — в `kilo.jsonc` (блок `permission`); человеческим языком — `docs/agent-rules.md`.
 - Для задач планирования, запросов `planning` и `planner` использовать субагента `planner.md`.
 - Для поиска строк кода использовать субагента `scout.md`.
-- Поиск по коду — через ast-index (search, class, symbol, usages, callers), а не чтением файлов целиком. смотри ast-index.md
+- Поиск по коду — через ast-index (search, class, symbol, usages, callers), а не чтением файлов целиком.
