@@ -36,8 +36,6 @@ final class ApplicationValidator
             $errors['year'] = sprintf('Год выпуска не раньше %d', $this->rules['vehicle']['min_year']);
         } elseif ($age < 0) {
             $errors['year'] = 'Год выпуска не может быть в будущем';
-        } elseif ($age > $this->rules['vehicle']['max_age_years']) {
-            $errors['year'] = sprintf('Возраст авто больше %d лет', $this->rules['vehicle']['max_age_years']);
         }
 
         if (!array_key_exists('mileage', $payload) || $payload['mileage'] === null || $payload['mileage'] === '') {
