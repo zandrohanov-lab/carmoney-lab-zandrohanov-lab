@@ -22,6 +22,11 @@
         "-y",
         "@playwright/mcp@0.0.38"
       ]
+    },
+    "claude-in-mobile": {
+      "type": "local",
+      "command": ["claude-in-mobile"],
+      "enabled": true
     }
   }
 }
