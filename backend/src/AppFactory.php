@@ -37,6 +37,7 @@ final class AppFactory
             new DecisionEngine($rules['ltv']),
             new VehicleAge((int) date('Y')),
             (int) $rules['vehicle']['review_mileage_km'],
+            (int) $rules['vehicle']['max_age_years'],
         );
 
         $controller = new ApplicationController($assessment, new ApplicationRepository($pdo));

@@ -53,6 +53,23 @@ final class ApplicationValidatorTest extends TestCase
         $this->validator->validate($this->validPayload(['year' => (int) date('Y') + 1]));
     }
 
+    public function testAcceptsVehicleAboveMaxAge(): void
+    {
+        $result = $this->validator->validate($this->validPayload(['year' => (int) date('Y') - 21]));
+
+        self::assertSame((int) date('Y') - 21, $result['year']);
+    }
+
+    public function testRejectsYearBelowMinYear(): void
+    {
+        try {
+            $this->validator->validate($this->validPayload(['year' => 1989]));
+            self::fail('Ожидали ValidationException');
+        } catch (ValidationException $exception) {
+            self::assertArrayHasKey('year', $exception->errors());
+        }
+    }
+
     public function testRejectsAmountBelowMinimum(): void
     {
         try {
