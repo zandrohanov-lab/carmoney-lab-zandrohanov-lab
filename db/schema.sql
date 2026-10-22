@@ -8,8 +8,20 @@ CREATE TABLE IF NOT EXISTS applications (
     term_months     SMALLINT UNSIGNED NOT NULL,
     status          ENUM('new', 'decided', 'cancelled') NOT NULL DEFAULT 'new',
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Заявка считается активной, пока статус не 'cancelled'. Для активных
+    -- заявок active_ref равен applicant_ref, для закрытых — NULL.
+    -- UNIQUE по active_ref не даёт клиенту две активные заявки; NULL в MySQL
+    -- не конфликтует, поэтому закрытая заявка ключ освобождает.
+    -- Ограничение держит именно БД: кодовый SELECT не защищает от гонки
+    -- двух параллельных INSERT.
+    -- В utf8mb4_0900_ai_ci (NO PAD) 'X' и 'X ' — разные ключи, поэтому
+    -- applicant_ref оборачивается в TRIM(): хвостовой/ведущий пробел в
+    -- client_ref больше не открывает «второй активный слот» для того же
+    -- клиента. Сам applicant_ref хранится как прислали — TRIM только в ключе.
+    active_ref      VARCHAR(32) GENERATED ALWAYS AS (IF(status = 'cancelled', NULL, TRIM(applicant_ref))) VIRTUAL,
     PRIMARY KEY (id),
-    KEY idx_applications_status (status)
+    KEY idx_applications_status (status),
+    UNIQUE KEY uq_applications_active_ref (active_ref)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 CREATE TABLE IF NOT EXISTS vehicles (
