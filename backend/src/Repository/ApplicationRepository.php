@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace CarMoneyLab\Repository;
 
+use CarMoneyLab\Domain\DuplicateActiveApplicationException;
 use PDO;
+use PDOException;
 
 /**
  * Хранение заявок, автомобилей и решений.
@@ -21,43 +23,76 @@ final class ApplicationRepository
      */
     public function save(string $applicantRef, array $input, array $assessment): int
     {
-        $statement = $this->pdo->prepare(
-            'INSERT INTO applications (applicant_ref, requested_amount, term_months, status)
-             VALUES (:applicant_ref, :amount, :term, :status)'
-        );
-        $statement->execute([
-            ':applicant_ref' => $applicantRef,
-            ':amount' => $input['requested_amount'],
-            ':term' => $input['term_months'],
-            ':status' => 'decided',
-        ]);
+        // Три INSERT выполняются в одной транзакции: если, например,
+        // decisions не влезет в DECIMAL(6,2) (ошибка 1264) — applications
+        // и vehicles тоже откатываются. Иначе в БД остаются «висящие»
+        // applications без решения, и клиент навсегда заблокирован
+        // по уникальному uq_applications_active_ref на следующей попытке.
+        $this->pdo->beginTransaction();
 
-        $applicationId = (int) $this->pdo->lastInsertId();
+        try {
+            $statement = $this->pdo->prepare(
+                'INSERT INTO applications (applicant_ref, requested_amount, term_months, status)
+                 VALUES (:applicant_ref, :amount, :term, :status)'
+            );
 
-        $vehicle = $this->pdo->prepare(
-            'INSERT INTO vehicles (application_id, vin, production_year, mileage_km, market_value)
-             VALUES (:application_id, :vin, :year, :mileage, :market_value)'
-        );
-        $vehicle->execute([
-            ':application_id' => $applicationId,
-            ':vin' => $input['vin'],
-            ':year' => $input['year'],
-            ':mileage' => $input['mileage'],
-            ':market_value' => $input['market_value'],
-        ]);
+            try {
+                $statement->execute([
+                    ':applicant_ref' => $applicantRef,
+                    ':amount' => $input['requested_amount'],
+                    ':term' => $input['term_months'],
+                    ':status' => 'decided',
+                ]);
+            } catch (PDOException $exception) {
+                // Уникальный индекс uq_applications_active_ref не даёт клиенту
+                // две активные заявки. Проверять это в коде нельзя: два
+                // параллельных INSERT прошли бы SELECT-guard, решение держит БД.
+                if (self::isDuplicateKeyError($exception)) {
+                    $this->pdo->rollBack();
+                    throw new DuplicateActiveApplicationException($applicantRef);
+                }
 
-        $decision = $this->pdo->prepare(
-            'INSERT INTO decisions (application_id, ltv, decision, approved_limit)
-             VALUES (:application_id, :ltv, :decision, :approved_limit)'
-        );
-        $decision->execute([
-            ':application_id' => $applicationId,
-            ':ltv' => $assessment['ltv'],
-            ':decision' => $assessment['decision'],
-            ':approved_limit' => $assessment['approved_limit'],
-        ]);
+                $this->pdo->rollBack();
+                throw $exception;
+            }
 
-        return $applicationId;
+            $applicationId = (int) $this->pdo->lastInsertId();
+
+            $vehicle = $this->pdo->prepare(
+                'INSERT INTO vehicles (application_id, vin, production_year, mileage_km, market_value)
+                 VALUES (:application_id, :vin, :year, :mileage, :market_value)'
+            );
+            $vehicle->execute([
+                ':application_id' => $applicationId,
+                ':vin' => $input['vin'],
+                ':year' => $input['year'],
+                ':mileage' => $input['mileage'],
+                ':market_value' => $input['market_value'],
+            ]);
+
+            $decision = $this->pdo->prepare(
+                'INSERT INTO decisions (application_id, ltv, decision, approved_limit)
+                 VALUES (:application_id, :ltv, :decision, :approved_limit)'
+            );
+            $decision->execute([
+                ':application_id' => $applicationId,
+                ':ltv' => $assessment['ltv'],
+                ':decision' => $assessment['decision'],
+                ':approved_limit' => $assessment['approved_limit'],
+            ]);
+
+            $this->pdo->commit();
+
+            return $applicationId;
+        } catch (DuplicateActiveApplicationException $exception) {
+            throw $exception;
+        } catch (PDOException $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $exception;
+        }
     }
 
     /** @return array<string,mixed> пустой массив, если заявки нет */
@@ -110,5 +145,14 @@ final class ApplicationRepository
         }
 
         return $result;
+    }
+
+    /**
+     * Дубликат по уникальному индексу MySQL: код 1062 и SQLSTATE 23000.
+     * Оба признака проверяем — драйверы сообщают о них по-разному.
+     */
+    private static function isDuplicateKeyError(PDOException $exception): bool
+    {
+        return (int) $exception->getCode() === 1062 || (string) $exception->getCode() === '23000';
     }
 }
